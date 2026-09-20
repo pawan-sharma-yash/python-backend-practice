@@ -1,11 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
+
+from app.core.database import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize SQLite DB on startup
+    try:
+        init_db()
+    except Exception:
+        pass
+    yield
+
 
 app = FastAPI(
     title="Kalikiri Backend",
     description="E-commerce learning application - FastAPI backend",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
