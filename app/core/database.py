@@ -32,7 +32,6 @@ def init_db(db_path: str | None = None) -> None:
             """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 hashed_password TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -40,8 +39,6 @@ def init_db(db_path: str | None = None) -> None:
             """
         )
         conn.commit()
-        # Create indexes for fast lookup
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
         conn.commit()
     finally:
@@ -50,24 +47,19 @@ def init_db(db_path: str | None = None) -> None:
 
 def _ensure_users_table(conn: sqlite3.Connection) -> None:
     """Ensure users table exists on the given connection."""
-    try:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                hashed_password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            hashed_password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        conn.commit()
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
-        conn.commit()
-    except Exception:
-        pass
+        """
+    )
+    conn.commit()
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+    conn.commit()
 
 
 def get_db():
