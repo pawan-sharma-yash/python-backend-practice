@@ -1,7 +1,7 @@
 import re
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 def _validate_email_value(v: str) -> str:
@@ -25,56 +25,12 @@ def _validate_password_value(v: str) -> str:
     return v
 
 
-def _validate_username_value(v: str) -> str:
-    if len(v) < 3:
-        raise ValueError("Username must be at least 3 characters long")
-    if len(v) > 50:
-        raise ValueError("Username must be at most 50 characters long")
-    if not re.match(r"^[a-zA-Z0-9._-]+$", v):
-        raise ValueError("Username can only contain alphanumeric characters, dots, underscores and hyphens")
-    return v
-
-
 class LoginRequest(BaseModel):
     model_config = ConfigDict(
         hide_input_in_errors=True,
+        extra="forbid",
     )
 
-    email: Optional[str] = None
-    username: Optional[str] = None
-    password: str
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        return _validate_email_value(v)
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        return _validate_username_value(v)
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        return _validate_password_value(v)
-
-    @model_validator(mode="after")
-    def check_identifier(self):
-        if self.email is None and self.username is None:
-            raise ValueError("Either email or username must be provided")
-        return self
-
-
-# Legacy alias - keep strict email-only for backward compat if needed internally
-class LoginRequestLegacy(BaseModel):
-    model_config = ConfigDict(
-        hide_input_in_errors=True,
-    )
     email: str
     password: str
 
@@ -92,16 +48,11 @@ class LoginRequestLegacy(BaseModel):
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(
         hide_input_in_errors=True,
+        extra="forbid",
     )
 
-    username: str
     email: str
     password: str
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, v: str) -> str:
-        return _validate_username_value(v)
 
     @field_validator("email")
     @classmethod
@@ -126,6 +77,5 @@ class RefreshRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    username: str
     email: str
     created_at: Optional[str] = None

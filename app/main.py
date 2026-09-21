@@ -9,11 +9,7 @@ from app.core.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite DB on startup
-    try:
-        init_db()
-    except Exception:
-        pass
+    init_db()
     yield
 
 
@@ -27,12 +23,7 @@ app = FastAPI(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # Streamline errors using Pydantic-native filtering when supported,
-    # fallback to common logic otherwise.
-    try:
-        raw_errors = exc.errors(include_url=False, include_context=False, include_input=False)  # type: ignore[call-arg]
-    except TypeError:
-        raw_errors = exc.errors()
+    raw_errors = exc.errors()
 
     messages = []
     for err in raw_errors:
