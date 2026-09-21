@@ -24,8 +24,44 @@ def get_connection(db_path: str | None = None) -> sqlite3.Connection:
     return conn
 
 
+def _migrate_users_table(conn: sqlite3.Connection) -> None:
+    """Add verification columns if they don't exist (SQLite no IF NOT EXISTS for columns)."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "is_email_verified" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN is_email_verified INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+    if "email_verified_at" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMP")
+        conn.commit()
+
+
+def _ensure_otps_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS otps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            otp_hash TEXT NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.commit()
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_otps_expires ON otps(expires_at)")
+    conn.commit()
+    # Cleanup expired OTPs opportunistically
+    try:
+        conn.execute("DELETE FROM otps WHERE expires_at < CURRENT_TIMESTAMP")
+        conn.commit()
+    except Exception:
+        pass
+
+
 def init_db(db_path: str | None = None) -> None:
-    """Create users table if not exists."""
+    """Create users + otps tables if not exists."""
     conn = get_connection(db_path)
     try:
         conn.execute(
@@ -34,32 +70,40 @@ def init_db(db_path: str | None = None) -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT UNIQUE NOT NULL,
                 hashed_password TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_email_verified INTEGER NOT NULL DEFAULT 0,
+                email_verified_at TIMESTAMP
             )
             """
         )
         conn.commit()
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
         conn.commit()
+        _migrate_users_table(conn)
+        _ensure_otps_table(conn)
     finally:
         conn.close()
 
 
 def _ensure_users_table(conn: sqlite3.Connection) -> None:
-    """Ensure users table exists on the given connection."""
+    """Ensure users + otps tables exist on the given connection."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
             hashed_password TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_email_verified INTEGER NOT NULL DEFAULT 0,
+            email_verified_at TIMESTAMP
         )
         """
     )
     conn.commit()
     conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
     conn.commit()
+    _migrate_users_table(conn)
+    _ensure_otps_table(conn)
 
 
 def get_db():

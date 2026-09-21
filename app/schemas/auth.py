@@ -79,6 +79,8 @@ class UserResponse(BaseModel):
     id: int
     email: str
     created_at: Optional[str] = None
+    is_email_verified: bool = False
+    email_verified_at: Optional[str] = None
 
 
 # --- Unified auth schemas ---
@@ -123,4 +125,51 @@ class AuthResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     is_new_user: bool
+    user: UserResponse
+
+
+# --- OTP schemas ---
+
+
+class OtpSendRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return _validate_email_value(v)
+
+
+class OtpVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str
+    otp: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return _validate_email_value(v)
+
+    @field_validator("otp")
+    @classmethod
+    def validate_otp(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("OTP must be numeric")
+        # length validated against settings in route, but enforce 4-8 here
+        if not (4 <= len(v) <= 8):
+            raise ValueError("OTP must be 4-8 digits")
+        return v
+
+
+class OtpSendResponse(BaseModel):
+    detail: str
+    email: str
+    expires_at: str
+    expires_in_minutes: int
+
+
+class OtpVerifyResponse(BaseModel):
+    detail: str
+    verified: bool
     user: UserResponse
