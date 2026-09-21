@@ -79,3 +79,48 @@ class UserResponse(BaseModel):
     id: int
     email: str
     created_at: Optional[str] = None
+
+
+# --- Unified auth schemas ---
+
+
+class AuthRequest(BaseModel):
+    """Single request body for the unified authenticate endpoint.
+
+    If the email does not exist a new user is created; otherwise the
+    password is verified and the user is logged in.
+    """
+
+    model_config = ConfigDict(
+        hide_input_in_errors=True,
+        extra="forbid",
+    )
+
+    email: str
+    password: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return _validate_email_value(v)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return _validate_password_value(v)
+
+
+class AuthResponse(BaseModel):
+    """Response for the unified endpoint.
+
+    `is_new_user` tells the frontend whether a new account was just
+    created (`True`) or an existing user logged in (`False`). When
+    `True` the frontend should drive the create-account / complete-
+    profile flow (e.g. collect address).
+    """
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    is_new_user: bool
+    user: UserResponse
